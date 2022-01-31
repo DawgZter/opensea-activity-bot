@@ -105,8 +105,9 @@ const textForTweet = async (event: any) => {
       .mulUnsafe(ethers.FixedNumber.from(usd_price))
       .toUnsafeFloat()
       .toFixed(2)
-    const name = await username(winner_account)
-    text += `purchased for ${amount} ($${amountUSD} USD) by ${name}`
+    const sale_buyer = await username(winner_account)
+    const sale_seller = await username(seller)
+    text += `purchased for ${amount} ($${amountUSD} USD) by ${sale_buyer} from ${sale_seller}`
   } else if (event_type === EventType.cancelled) {
     const { symbol, decimals, usd_price } = payment_token
     const price =
