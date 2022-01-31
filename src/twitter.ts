@@ -45,7 +45,7 @@ const textForTweet = async (event: any) => {
     asset_bundle,
   } = event
 
-  let text = `#${asset.token_id} `
+  let text = `#${asset.token_id} (${asset.name})`
 
   if (asset_bundle) {
     text = `${asset_bundle.name} `
