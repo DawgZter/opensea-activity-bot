@@ -166,8 +166,12 @@ const embed = async (event: any) => {
       value: `${price} ($${priceUSD} USD)`,
     })
     fields.push({
-      name: 'By',
+      name: 'Buyer',
       value: await username(winner_account),
+    })
+    fields.push({
+      name: 'Seller',
+      value: await username(seller),
     })
   } else if (event_type === EventType.cancelled) {
     const { symbol, decimals, usd_price } = payment_token
