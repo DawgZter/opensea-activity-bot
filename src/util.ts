@@ -53,8 +53,16 @@ export const assetUSDValue = (event: any) => {
   const { bid_amount, payment_token } = event
   const { decimals, usd_price } = payment_token
   const price = ethers.utils.formatUnits(bid_amount, decimals)
-  return ethers.FixedNumber.from(price)
-    .mulUnsafe(ethers.FixedNumber.from(usd_price))
-    .toUnsafeFloat()
-    .toFixed(2)
+  return Number(
+    ethers.FixedNumber.from(price)
+      .mulUnsafe(ethers.FixedNumber.from(usd_price))
+      .toUnsafeFloat()
+      .toFixed(2)
+  )
 }
+
+/**
+ * Env helpers
+ */
+export const botInterval = Number(process.env.OPENSEA_BOT_INTERVAL ?? 60)
+export const shortTokenAddr = shortAddr(process.env.TOKEN_ADDRESS)

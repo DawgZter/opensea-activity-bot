@@ -1,13 +1,25 @@
+import { writeFileSync } from 'fs'
+import { resolve } from 'path'
 import { URLSearchParams } from 'url'
 import fetch from 'node-fetch'
-import { format } from 'timeago.js'
-import { botInterval } from './index'
 import { channelsWithEvents } from './discord'
-import { assetUSDValue, shortAddr, unixTimestamp } from './util'
+import { assetUSDValue, unixTimestamp, shortTokenAddr } from './util'
+import meta from './meta.json'
 
-const { OPENSEA_API_TOKEN, TOKEN_ADDRESS, TWITTER_EVENTS, DEBUG } = process.env
+const {
+  OPENSEA_API_TOKEN,
+  TOKEN_ADDRESS,
+  TWITTER_EVENTS,
+  MIN_OFFER_USD,
+  DEBUG,
+} = process.env
 
-const shortTokenAddr = shortAddr(TOKEN_ADDRESS)
+const minOfferUSD = Number(MIN_OFFER_USD ?? 100)
+
+const updateMeta = (lastEventId: number) => {
+  meta.lastEventId = lastEventId
+  writeFileSync(resolve(__dirname, './meta.json'), JSON.stringify(meta))
+}
 
 export const opensea = {
   events: 'https://api.opensea.io/api/v1/events',
@@ -61,14 +73,11 @@ const enabledEventTypes = () => {
 }
 
 export const fetchEvents = async (): Promise<any> => {
-  const since = unixTimestamp(new Date()) - botInterval
-  const ago = format(new Date(since * 1000))
-  console.log(`OpenSea - ${shortTokenAddr} - Fetching events from ${ago}`)
-
+  console.log(`OpenSea - ${shortTokenAddr} - Fetching events`)
   const eventTypes = enabledEventTypes()
   const params: any = {
     asset_contract_address: TOKEN_ADDRESS,
-    occurred_after: since,
+    occurred_after: unixTimestamp(new Date()) - 420, // check 7 mins back
     limit: opensea.GET_LIMIT,
   }
 
@@ -85,15 +94,9 @@ export const fetchEvents = async (): Promise<any> => {
     const response = await fetch(url, opensea.GET_OPTS)
     if (!response.ok) {
       console.error(
-        `OpenSea - ${shortTokenAddr} - Fetch Error - ${response.status}: ${response.statusText}`
+        `OpenSea - ${shortTokenAddr} - Fetch Error - ${response.status}: ${response.statusText}`,
+        DEBUG ? `DEBUG: ${JSON.stringify(await response.text())}` : ''
       )
-      if (DEBUG) {
-        console.error(
-          `OpenSea - ${shortTokenAddr} - Fetch Error - DEBUG: ${JSON.stringify(
-            await response.text()
-          )}`
-        )
-      }
       return
     }
     const result = await response.json()
@@ -134,6 +137,14 @@ export const fetchEvents = async (): Promise<any> => {
     }
   }
 
+  if (!events || events.length === 0) return []
+
+  // Filter since lastEventId
+  events = events.filter((event) => event.id > meta.lastEventId)
+  if (events.length > 0) {
+    updateMeta(Math.max(...events.map((event) => event.id)))
+  }
+
   // Filter out private listings
   events = events.filter(
     (event) =>
@@ -141,27 +152,27 @@ export const fetchEvents = async (): Promise<any> => {
       (event.event_type === EventType.created && !event.is_private)
   )
 
-  const eventsPreFilter = events?.length ?? 0
+  const eventsPreFilter = events.length
   console.log(
     `OpenSea - ${shortTokenAddr} - Fetched events: ${eventsPreFilter}`
   )
 
-  // Filter out low value offers (under $100 USD)
+  // Filter out low value bids or offers
   events = events.filter((event) =>
     [
       EventType.offer_entered,
       EventType.bid_entered,
       EventType.bid_withdrawn,
     ].includes(event.event_type)
-      ? Number(assetUSDValue(event)) > 100
+      ? assetUSDValue(event) >= minOfferUSD
       : true
   )
 
-  const eventsPostFilter = events?.length ?? 0
+  const eventsPostFilter = events.length
   const eventsFiltered = eventsPreFilter - eventsPostFilter
   if (eventsFiltered > 0) {
     console.log(
-      `Opensea - ${shortTokenAddr} - Offers under $100 USD filtered out: ${eventsFiltered}`
+      `Opensea - ${shortTokenAddr} - Offers under $${minOfferUSD} USD filtered out: ${eventsFiltered}`
     )
   }
 

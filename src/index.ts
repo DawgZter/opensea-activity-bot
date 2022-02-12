@@ -1,24 +1,17 @@
 import { fetchEvents } from './opensea'
 import { messageEvents } from './discord'
 import { tweetEvents } from './twitter'
-import { shortAddr } from './util'
+import { botInterval, shortTokenAddr } from './util'
 
-const { DEBUG, TOKEN_ADDRESS } = process.env
-
-export const botInterval = Number(process.env.OPENSEA_BOT_INTERVAL ?? 180)
-
-const shortTokenAddr = shortAddr(TOKEN_ADDRESS)
+const { DEBUG } = process.env
 
 async function main() {
   const run = async () => {
     const events = await fetchEvents()
-
-    if (!events || events.length === 0) {
-      return
-    }
+    if (!events || events.length === 0) return
 
     if (DEBUG) {
-      console.log(`DEBUG - ${shortTokenAddr} - Events:`)
+      console.log(`Opensea - ${shortTokenAddr} - DEBUG - Events:`)
       console.log(JSON.stringify(events))
     }
 
